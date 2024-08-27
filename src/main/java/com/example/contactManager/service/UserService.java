@@ -16,6 +16,12 @@ public class UserService {
     @Autowired
     private UserRepository userRepository;
 
+
+
+    public Optional<User> findByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
     public User register(RegisterRequestDto request) {
         // Проверяем, существует ли уже пользователь с таким email
         Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
@@ -55,5 +61,19 @@ public class UserService {
             }
         }
         return Optional.empty();
+    }
+    public Integer getOwnerIdFromToken(String token) {
+        if (token.startsWith("001{") && token.endsWith("}")) {
+            String tokenContent = token.substring(4, token.length() - 1);
+            String[] parts = tokenContent.split("\\|");
+            if (parts.length == 2) {
+                String email = parts[0];
+                Optional<User> userOptional = userRepository.findByEmail(email);
+                if (userOptional.isPresent()) {
+                    return userOptional.get().getId().intValue();
+                }
+            }
+        }
+        return null;
     }
 }

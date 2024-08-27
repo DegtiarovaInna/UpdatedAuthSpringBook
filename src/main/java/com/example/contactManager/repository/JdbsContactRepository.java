@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+
 @Primary
 @Repository
 public class JdbsContactRepository implements ContactRepository {
@@ -16,28 +17,35 @@ public class JdbsContactRepository implements ContactRepository {
     private JdbcTemplate jdbcTemplate;
 
     @Override
-    public Contact save(Contact contact) {
+    public Contact save(Contact contact) { //Меняю, т к возвращает ИД при запросе null т е не обновляет объект Contact после вставки в базу данных
         if (contact.getId() == null) {
             // Insert
-            String sql = "INSERT INTO contacts (name, email) VALUES (?, ?)";
-            jdbcTemplate.update(sql, contact.getName(), contact.getEmail());
-        } else {
-            // Update
-            String sql = "UPDATE contacts SET name = ?, email = ? WHERE id = ?";
-            jdbcTemplate.update(sql, contact.getName(), contact.getEmail(), contact.getId());
-        }
-        return contact;
+            String sql = "INSERT INTO contact (name, email, owner_id) VALUES (?, ?, ?)";
+            jdbcTemplate.update(sql, contact.getName(), contact.getEmail(), contact.getOwnerId());
+
+            // Получаем последний вставленный ID
+            Integer generatedId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Integer.class);
+            if (generatedId != null) {
+                contact.setId(generatedId);
+            } else {
+                throw new RuntimeException("Failed to retrieve the generated ID for the contact");
+            }  } else {
+                String sql = "UPDATE contact SET name = ?, email = ?, owner_id = ? WHERE id = ?";
+                jdbcTemplate.update(sql, contact.getName(), contact.getEmail(), contact.getOwnerId(), contact.getId());
+            }
+            return contact;
     }
 
     @Override
     public Optional<Contact> findById(Integer id) {
-        String sql = "SELECT * FROM contacts WHERE id = ?";
+        String sql = "SELECT * FROM contact WHERE id = ?";
         return jdbcTemplate.query(sql, rs -> {
             if (rs.next()) {
                 return Optional.of(Contact.builder()
                         .id(rs.getInt("id"))
                         .name(rs.getString("name"))
                         .email(rs.getString("email"))
+                        .ownerId(rs.getInt("owner_id"))
                         .build());
             } else {
                 return Optional.empty();
@@ -47,7 +55,7 @@ public class JdbsContactRepository implements ContactRepository {
 
     @Override
     public List<Contact> findAll() {
-        String sql = "SELECT * FROM contacts";
+        String sql = "SELECT * FROM contact";
         return jdbcTemplate.query(sql, (rs, rowNum) -> Contact.builder()
                 .id(rs.getInt("id"))
                 .name(rs.getString("name"))
@@ -57,7 +65,9 @@ public class JdbsContactRepository implements ContactRepository {
 
     @Override
     public void deleteById(Integer id) {
-        String sql = "DELETE FROM contacts WHERE id = ?";
+        String sql = "DELETE FROM contact WHERE id = ?";
         jdbcTemplate.update(sql, id);
     }
+
+
 }

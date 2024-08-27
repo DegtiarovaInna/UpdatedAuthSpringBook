@@ -17,6 +17,7 @@ public class InMemoryContactRepository implements ContactRepository {
 
     @Override
     public Contact save(Contact contact) {
+        System.out.println("Используется InMemoryContactRepository");
         if (contact.getId() == null) {
             contact.setId(counter.incrementAndGet());
             contacts.add(contact);

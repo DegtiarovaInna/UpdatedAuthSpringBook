@@ -4,6 +4,7 @@ import com.example.contactManager.model.Contact;
 import com.example.contactManager.service.ContactService;
 import com.example.contactManager.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,38 +21,55 @@ public class ContactsController {
     private UserService userService;
 
     @GetMapping("/{id}")
-    public ResponseEntity<Contact> getContactById(@PathVariable Integer id) {
-        Contact contact = contactService.getContactById(id);
+    public ResponseEntity<Contact> getContactById(@RequestHeader("Authorization") String token, @PathVariable Integer id) {
+        Integer ownerId = userService.getOwnerIdFromToken(token);
+        Contact contact = contactService.getContactById(id, ownerId);
         return contact != null ? ResponseEntity.ok(contact) : ResponseEntity.notFound().build();
     }
 
     @GetMapping
-    public ResponseEntity<List<Contact>> getAllContacts() {
-        List<Contact> contacts = contactService.getAllContacts();
+    public ResponseEntity<List<Contact>> getAllContacts(@RequestHeader("Authorization") String token) {
+        Integer ownerId = userService.getOwnerIdFromToken(token);
+        List<Contact> contacts = contactService.getAllContactsByOwnerId(ownerId);
         return ResponseEntity.ok(contacts);
     }
 
     @PostMapping
     public ResponseEntity<Contact> addContact(@RequestHeader("Authorization") String token, @RequestBody Contact contact) {
-        validateToken(token);
+        Integer ownerId = userService.getOwnerIdFromToken(token); // Используем UserService для получения ownerId
+        if (ownerId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        contact.setOwnerId(ownerId); // Устанавливаем ownerId в контакт
         Contact savedContact = contactService.addContact(contact);
         return ResponseEntity.ok(savedContact);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Contact> updateContact(@RequestHeader("Authorization") String token, @PathVariable Integer id, @RequestBody Contact contact) {
-        validateToken(token);
-        Contact updatedContact = contactService.updateContact(id, contact.getName(), contact.getEmail());
+        Integer ownerId = userService.getOwnerIdFromToken(token);
+        if (ownerId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // Проверяем, что contact не равен null и что все нужные поля заполнены
+        if (contact == null || contact.getName() == null || contact.getEmail() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Contact updatedContact = contactService.updateContact(id, ownerId, contact.getName(), contact.getEmail());
         return updatedContact != null ? ResponseEntity.ok(updatedContact) : ResponseEntity.notFound().build();
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteContact(@RequestHeader("Authorization") String token, @PathVariable Integer id) {
-        validateToken(token);
+        Integer ownerId = userService.getOwnerIdFromToken(token);
+        if (ownerId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         boolean deleted = contactService.deleteContact(id);
         return deleted ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
     }
-
     private void validateToken(String token) {
         if (token == null || !userService.findByToken(token).isPresent()) {
             throw new RuntimeException("Unauthorized access");
