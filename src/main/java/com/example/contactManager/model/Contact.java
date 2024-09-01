@@ -1,5 +1,6 @@
 package com.example.contactManager.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,20 +16,15 @@ import java.util.List;
 @Builder
 @Entity
 public class Contact {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
     private String name;
     private String email;
-    private Integer ownerId; //для ЛК
+    private Long ownerId;
 
     @OneToMany(mappedBy = "contact", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Phone> phones = new ArrayList<>();
+    @JsonManagedReference // Это аннотация предотвращает бесконечную рекурсию
+    private List<Phone> phones;
 
-    public Contact(Integer id, String name, String email) {
-        this.id = id;
-        this.name = name;
-        this.email = email;
-    }
 }

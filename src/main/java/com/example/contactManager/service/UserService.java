@@ -16,27 +16,21 @@ public class UserService {
     @Autowired
     private UserRepository userRepository;
 
-
-
-    public Optional<User> findByEmail(String email) {
-        return userRepository.findByEmail(email);
-    }
-
     public User register(RegisterRequestDto request) {
-        // Проверяем, существует ли уже пользователь с таким email
-        Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
+        //Проверка на то существует ли уже пользователь с таким email
+        Optional <User> existingUser= userRepository.findByEmail(request.getEmail());
         if (existingUser.isPresent()) {
-            throw new RuntimeException("User with this email already exists");
+            throw  new RuntimeException("User with this email already exists");
         }
-
-        // Если пользователь с таким email не найден, создаем нового
+        //Если пользователь с таким email не найден, то создаем нового
         User user = new User();
         user.setEmail(request.getEmail());
-        user.setPassword(request.getPassword()); // Пароль должен быть захеширован
         user.setName(request.getName());
+        user.setPassword(request.getPassword());
+        user.setRole("ROLE_USER");
 
-        // Сохраняем нового пользователя в базе данных
-        return userRepository.save(user);
+        //сохраняем пользователя
+        return  userRepository.save(user);
     }
 
 
@@ -62,18 +56,28 @@ public class UserService {
         }
         return Optional.empty();
     }
-    public Integer getOwnerIdFromToken(String token) {
-        if (token.startsWith("001{") && token.endsWith("}")) {
-            String tokenContent = token.substring(4, token.length() - 1);
-            String[] parts = tokenContent.split("\\|");
-            if (parts.length == 2) {
-                String email = parts[0];
-                Optional<User> userOptional = userRepository.findByEmail(email);
-                if (userOptional.isPresent()) {
-                    return userOptional.get().getId().intValue();
-                }
-            }
+    public void updateUserRole(Long userId, String role ) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!role.equals("ROLE_USER") && !role.equals("ROLE_ADMIN")) {
+            throw new RuntimeException("Invalid role");
         }
-        return null;
+        user.setRole(role);
+        userRepository.save(user);
+    }
+//    public boolean isAdmin(String token) {
+//        return findByToken(token)
+//                .map(user -> user.getRole().equals("ROLE_ADMIN"))
+//                .orElse(false);
+//    }
+public boolean isAdmin(Long userId) {
+    return userRepository.findById(userId)
+            .map(user -> user.getRole().equals("ROLE_ADMIN"))
+            .orElse(false);
+}
+    public Long getUserIdFromToken(String token) {
+        return findByToken(token)
+                .map(user -> user.getId()) // Возвращаем Long напрямую
+                .orElseThrow(() -> new RuntimeException("Invalid token"));
     }
 }
